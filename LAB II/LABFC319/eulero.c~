@@ -1,0 +1,44 @@
+#include <stdio.h>
+#include <math.h>
+
+Define N 1000
+
+int main(){
+
+  double X0,X, V0,V, t, tMax, DeltaT, OmegaQ, Acc;
+  
+  printf("Inserisca il tempo: ");
+  scanf("%lf", &tMax);
+
+  printf("\nOra inserisca la posizione iniziale(m) :");
+  scanf("%lf", &X0);
+
+  printf("\nInserisca la velocita iniziale(m/s) :");
+  scanf("%lf", &V0);
+
+  do{
+  printf("\nInserica la pulsazione :");
+  scanf("%lf", &OmegaQ);
+  }while(OmegaQ <= 0);
+
+  
+  DeltaT = tMax/N;
+
+  X = X0;
+
+  V = V0;
+  
+  for(t = 0; t < tMax; t += DeltaT){
+
+    Acc= -OmegaQ*X;
+
+    X = X + V*DeltaT; 
+    V = V + Acc*DeltaT;
+
+  }
+  
+   printf("\nPosizione finale è %lf\n", X); 
+   printf("\nVelocita finale è %lf\n", V);
+  
+  return 0;
+}
