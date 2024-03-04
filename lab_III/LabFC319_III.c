@@ -1,0 +1,221 @@
+#include <math.h>
+#include <stdlib.h>
+#include <stdio.h>
+
+struct phaseSpace {
+  double x;
+  double v;
+};
+
+struct Kutta{
+  double Uno;
+  double Due;
+};
+
+double Acc(double OmegaQ, double X, double V, double gamma, double f0, double OmegaEs, double t);
+double Energy(struct phaseSpace pendolo, double OmegaQ);
+  
+struct phaseSpace VerletMethod(struct phaseSpace pendolo, double dt, double t,  double* x0, double* xn, double OmegaQ, double gamma, double f0, double OmegaEs);
+struct phaseSpace VelocityVerlet(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs);
+struct phaseSpace RungeKutta2(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs);
+struct phaseSpace RungeKutta4(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs);
+
+#define g 9.81
+
+
+int main(int argc,char* argv[]){
+  double v0, x0, dt, tTot, OmegaQ, xn, gamma, f0, OmegaEs, t, tau;
+  struct phaseSpace point;
+  int Metod;
+  FILE * input;
+  if(argc != 2){
+    printf("\nWarning\n");
+    return 1;
+  }
+  f0 = atof(argv[1]);
+  
+  if ((input = fopen("input.txt", "r")) == NULL) {
+    printf("ERROR file input\n");
+    exit(1);
+  }
+
+  fscanf(input, "%lf %lf %lf %lf %lf %lf %lf %d", &x0, &v0, &dt, &tTot, &OmegaQ, &gamma, &OmegaEs, &Metod);
+
+  /*
+  if(argc != 10){
+    printf("\n i valori devono essere X0, V0, dt, tTot, OmegaQ , f0 , gamma, OmegaEs, Metod\n");
+    return 1;
+  }
+  x0 = atof(argv[1]);
+  v0 = atof (argv[2]);
+  dt = atof(argv[3]);
+  tTot = atof(argv[4]);
+  OmegaQ = atof(argv[5]);
+  f0=atof(argv[6]);
+  gamma=atof(argv[7]);
+  OmegaEs=atof(argv[8]); 
+  Metod = atoi(argv[9]);
+  */
+  x0 = M_PI/2;
+  OmegaEs = 2./3.;
+  
+  
+  tau = 2*M_PI/OmegaEs;
+  dt = tau/1000;
+  tTot = tau;
+
+  
+  point.x = x0;
+  point.v = v0;
+ 
+
+  //Verlet  
+  if(Metod == 1){
+    //verlet non autosufficiente, quindi calcoliamo il primo xn con Eulero
+    xn = x0 + v0*dt;
+
+    for(t=0;t<tTot;t+=dt){
+      point = VerletMethod(point, dt, t,  &x0,  &xn, OmegaQ, gamma, f0, OmegaEs);
+      printf("%g    %g    %g    %g    %g\n", t, point.x, point.v, Acc(OmegaQ, point.x, point.v, gamma, f0, OmegaEs, t), Energy(point, OmegaQ));
+    }
+       
+  }
+  //Velocity Verlet
+  if(Metod == 2){
+
+    for(t=0;t<tTot; t += dt){
+      point = VelocityVerlet(point, dt, t, OmegaQ, gamma, f0, OmegaEs);
+      printf("%g    %g    %g    %g    %g\n", t, point.x, point.v, Acc(OmegaQ, point.x, point.v, gamma, f0, OmegaEs, t), Energy(point, OmegaQ));
+    }
+    
+  }
+
+  
+  //Runge-Kutta 2
+  if(Metod == 3){
+
+  for(t=0;t<tTot;t+=dt){
+      point = RungeKutta2(point, dt, t, OmegaQ, gamma, f0, OmegaEs);
+      printf("%g    %g    %g    %g    %g\n", t, point.x, point.v, Acc(OmegaQ, point.x, point.v, gamma, f0, OmegaEs, t), Energy(point, OmegaQ));
+    }
+    
+  }
+
+  
+  //Runge-Kutta 4
+  if(Metod == 4){
+
+    for(t=0;t<tTot;t+=dt){
+      point = RungeKutta4(point, dt, t, OmegaQ, gamma, f0, OmegaEs);
+      printf("%g    %g    %g    %g    %g\n", t, point.x, point.v, Acc(OmegaQ, point.x, point.v, gamma, f0, OmegaEs, t), Energy(point, OmegaQ));
+    }
+    
+    
+  }
+
+  fclose(input);
+    
+  
+}
+
+double Acc(double OmegaQ, double X, double V, double gamma, double f0, double OmegaEs, double t){
+
+  return -OmegaQ*sin(X) - gamma*V + f0*cos(OmegaEs*t); 
+
+}
+
+
+double Energy(struct phaseSpace pendolo, double OmegaQ){
+
+  return pendolo.v*pendolo.v + g*(1-cos(pendolo.x));
+
+}
+
+
+
+
+
+struct phaseSpace VerletMethod(struct phaseSpace pendolo, double dt, double t,  double* x0, double* xn, double OmegaQ, double gamma, double f0, double OmegaEs){
+ 
+  pendolo.x = 2*(*xn) - *x0 + Acc(OmegaQ, *xn, pendolo.v, gamma, f0, OmegaEs, t)*dt*dt;
+  pendolo.v = (pendolo.x - *x0)/(2*dt);
+  *x0 = *xn;
+  *xn = pendolo.x;
+  
+  return pendolo;
+  
+}
+
+
+
+struct phaseSpace VelocityVerlet(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs){
+  double acc, velPros;
+  
+  acc = Acc(OmegaQ, pendolo.x, pendolo.v, gamma, f0, OmegaEs, t);
+  pendolo.x = pendolo.x + pendolo.v*dt + 0.5*acc*dt*dt;
+
+  velPros = pendolo.v + acc*dt; 
+  pendolo.v = pendolo.v + 0.5*(Acc(OmegaQ, pendolo.x, velPros, gamma, f0, OmegaEs, t) + acc)*dt;  
+
+
+  return pendolo;
+} 
+
+
+
+/*struct phaseSpace RungeKutta2(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs){
+
+  double xPlus, vPlus, acc;
+  
+  xPlus = pendolo.v*dt;
+  vPlus = Acc(OmegaQ, pendolo.x, pendolo.v, gamma, f0, OmegaEs, t)*dt;
+
+  acc = pendolo.v + Acc(OmegaQ, pendolo.x + 0.5*xPlus, pendolo.v + 0.5*vPlus, gamma, f0, OmegaEs, t);
+  
+  pendolo.x = pendolo.x + (pendolo.v + 0.5*vPlus)*dt;
+  pendolo.v = pendolo.v + acc*dt;
+
+  return pendolo;
+
+
+
+
+  }*/
+
+
+struct phaseSpace RungeKutta2(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs){
+
+  struct Kutta k1, k2;
+  k1.Uno = pendolo.v*dt;
+  k1.Due = Acc(OmegaQ, pendolo.x, pendolo.v, gamma, f0, OmegaEs, t)*dt;
+
+  k2.Uno = (pendolo.v + 0.5*k1.Due)*dt;
+  k2.Due = Acc(OmegaQ, pendolo.x + 0.5*k1.Uno, pendolo.v + 0.5*k1.Due, gamma, f0, OmegaEs, t + 0.5*dt);
+
+  pendolo.x = pendolo.x + 0.5*(k1.Uno + k2.Uno);  
+  pendolo.v = pendolo.v + 0.5*(k1.Due + k2.Due);
+
+  return pendolo;
+}
+
+struct phaseSpace RungeKutta4(struct phaseSpace pendolo, double dt, double t, double OmegaQ, double gamma, double f0, double OmegaEs){
+
+  struct Kutta k1, k2, k3, k4;
+  k1.Uno = pendolo.v*dt;
+  k1.Due = Acc(OmegaQ, pendolo.x, pendolo.v, gamma, f0, OmegaEs, t)*dt;
+
+  k2.Uno = (pendolo.v + 0.5*k1.Due)*dt;
+  k2.Due = Acc(OmegaQ, pendolo.x + 0.5*k1.Uno, pendolo.v + 0.5*k1.Due, gamma, f0, OmegaEs, t + 0.5*dt)*dt;
+
+  k3.Uno = (pendolo.v + 0.5*k2.Due)*dt;
+  k3.Due = Acc(OmegaQ, pendolo.x + 0.5*k2.Uno, pendolo.v + 0.5*k2.Due, gamma, f0, OmegaEs, t + 0.5*dt)*dt;
+
+  k4.Uno = (pendolo.v + k3.Due)*dt;
+  k4.Due = Acc(OmegaQ, pendolo.x + k3.Uno, pendolo.v + k3.Due , gamma, f0, OmegaEs, t + dt)*dt;
+
+  pendolo.x = pendolo.x + (k1.Uno + 2*k2.Uno + 2*k3.Uno + k4.Uno)/6;
+  pendolo.v = pendolo.v + (k1.Due + 2*k2.Due + 2*k3.Due + k4.Due)/6;
+
+  return pendolo;
+
+}
